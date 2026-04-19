@@ -1,0 +1,1018 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PipeIntel — Pipe Integrity Monitoring System</title>
+  <meta name="description" content="Predictive maintenance system for coated drill pipe. Real-time ultrasonic waveform analysis, ML coating classification, and physics-based corrosion modeling.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <style>
+    /* ── RESET & BASE ─────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --amber:       #E8960A;
+      --amber-light: #FBB82A;
+      --amber-pale:  #FEF3D7;
+      --dark:        #2C2420;
+      --dark2:       #3D2F28;
+      --dark3:       #1E1714;
+      --brown:       #6B4C3B;
+      --mid:         #8C6A55;
+      --border:      #E0D5CC;
+      --light:       #F5F0EB;
+      --white:       #FFFFFF;
+      --green:       #10B981;
+      --green-pale:  #ECFDF5;
+      --green-dark:  #065F46;
+      --warn:        #F59E0B;
+      --warn-pale:   #FFFBEB;
+      --warn-dark:   #92400E;
+      --red:         #EF4444;
+      --red-pale:    #FEF2F2;
+      --red-dark:    #991B1B;
+    }
+    html { scroll-behavior: smooth; }
+    body {
+      font-family: 'IBM Plex Sans', system-ui, sans-serif;
+      background: var(--light);
+      color: var(--dark);
+      font-size: 14px;
+      line-height: 1.6;
+    }
+    .mono { font-family: 'IBM Plex Mono', 'Courier New', monospace; }
+
+    /* ── NAVIGATION ───────────────────────────────────── */
+    nav {
+      background: var(--dark3);
+      border-bottom: 3px solid var(--amber);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 32px;
+      height: 58px;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+    .nav-logo { display: flex; align-items: center; gap: 11px; text-decoration: none; }
+    .nav-logo-img { width: 34px; height: 34px; }
+    .nav-brand { color: #fff; font-size: 17px; font-weight: 600; letter-spacing: 0.01em; }
+    .nav-brand span { color: var(--amber); }
+    .nav-sub { color: #6b4c3b; font-size: 10px; font-weight: 400; letter-spacing: 0.1em; text-transform: uppercase; margin-left: 2px; }
+    .nav-links { display: flex; }
+    .nav-links a {
+      color: #a89080;
+      font-size: 11px;
+      font-weight: 500;
+      letter-spacing: 0.09em;
+      text-transform: uppercase;
+      padding: 0 18px;
+      height: 58px;
+      display: flex;
+      align-items: center;
+      text-decoration: none;
+      border-bottom: 3px solid transparent;
+      margin-bottom: -3px;
+      transition: color 0.15s, border-color 0.15s;
+    }
+    .nav-links a:hover { color: #fff; border-bottom-color: var(--amber-light); }
+    .nav-links a.active { color: #fff; border-bottom-color: var(--amber); }
+    .nav-status {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 11px;
+      color: #6b4c3b;
+      padding-left: 18px;
+      border-left: 1px solid #3d2f28;
+    }
+    .ws-dot {
+      width: 7px; height: 7px; border-radius: 50%;
+      background: var(--green);
+      animation: blink 2.5s ease-in-out infinite;
+    }
+    @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.25} }
+
+    /* ── PAGE SWITCHING ───────────────────────────────── */
+    .page { display: none; }
+    .page.active { display: block; }
+
+    /* ── STATUS STRIP ─────────────────────────────────── */
+    .status-strip {
+      background: var(--dark2);
+      padding: 7px 32px;
+      display: flex;
+      align-items: center;
+      gap: 28px;
+      border-bottom: 1px solid #4a3529;
+      flex-wrap: wrap;
+    }
+    .strip-item { font-size: 11px; color: #6b4c3b; display: flex; align-items: center; gap: 5px; }
+    .strip-val { color: var(--amber-light); font-family: 'IBM Plex Mono', monospace; }
+
+    /* ── HERO ─────────────────────────────────────────── */
+    .hero {
+      background: var(--dark2);
+      padding: 56px 32px 48px;
+      border-bottom: 1px solid #4a3529;
+    }
+    .hero-inner {
+      max-width: 900px;
+      margin: 0 auto;
+      display: grid;
+      grid-template-columns: 1.1fr 0.9fr;
+      gap: 48px;
+      align-items: center;
+    }
+    .hero-eyebrow {
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      color: var(--amber);
+      margin-bottom: 14px;
+    }
+    .hero h1 {
+      font-size: 30px;
+      font-weight: 300;
+      color: #fff;
+      line-height: 1.28;
+      margin-bottom: 16px;
+    }
+    .hero h1 strong { font-weight: 600; color: var(--amber-light); }
+    .hero-desc { font-size: 13px; color: #a89080; line-height: 1.75; margin-bottom: 26px; }
+    .hero-btns { display: flex; gap: 12px; flex-wrap: wrap; }
+    .btn-primary {
+      background: var(--amber);
+      color: var(--dark3);
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.09em;
+      text-transform: uppercase;
+      padding: 11px 22px;
+      border: 2px solid var(--amber);
+      cursor: pointer;
+      font-family: inherit;
+      transition: background 0.15s;
+    }
+    .btn-primary:hover { background: var(--amber-light); border-color: var(--amber-light); }
+    .btn-outline {
+      background: transparent;
+      color: #a89080;
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.09em;
+      text-transform: uppercase;
+      padding: 11px 22px;
+      border: 1px solid #5a4035;
+      cursor: pointer;
+      font-family: inherit;
+      transition: border-color 0.15s, color 0.15s;
+    }
+    .btn-outline:hover { border-color: var(--amber); color: #fff; }
+    .hero-stats {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1px;
+      background: #4a3529;
+      border: 1px solid #4a3529;
+    }
+    .hero-stat {
+      background: var(--dark3);
+      padding: 20px;
+      text-align: center;
+    }
+    .hero-stat-val {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 28px;
+      font-weight: 400;
+      color: var(--amber-light);
+    }
+    .hero-stat-label { font-size: 10px; color: #6b4c3b; letter-spacing: 0.09em; text-transform: uppercase; margin-top: 4px; }
+
+    /* ── LAYOUT ───────────────────────────────────────── */
+    .container { max-width: 900px; margin: 0 auto; padding: 32px 20px; }
+    .section-eyebrow { font-size: 10px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: var(--amber); margin-bottom: 4px; }
+    .section-heading { font-size: 20px; font-weight: 400; color: var(--dark); margin-bottom: 20px; }
+
+    /* ── KPI CARDS ────────────────────────────────────── */
+    .kpi-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 1px;
+      background: var(--border);
+      border: 1px solid var(--border);
+      margin-bottom: 18px;
+    }
+    .kpi {
+      background: var(--white);
+      padding: 18px 16px 14px;
+      border-top: 3px solid var(--amber);
+    }
+    .kpi.green { border-top-color: var(--green); }
+    .kpi.warn  { border-top-color: var(--warn); }
+    .kpi.red   { border-top-color: var(--red); }
+    .kpi-label { font-size: 10px; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: var(--mid); margin-bottom: 5px; }
+    .kpi-val   { font-family: 'IBM Plex Mono', monospace; font-size: 22px; font-weight: 500; color: var(--dark); }
+    .kpi-unit  { font-size: 12px; color: #aaa; margin-left: 2px; }
+    .kpi-sub   { font-size: 11px; color: var(--mid); margin-top: 4px; }
+
+    /* ── DASHBOARD GRID ───────────────────────────────── */
+    .dash-grid { display: grid; grid-template-columns: 3fr 2fr; gap: 14px; }
+    .panel { background: var(--white); border: 1px solid var(--border); padding: 16px; }
+    .panel + .panel { margin-top: 14px; }
+    .panel-title {
+      font-size: 10px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase;
+      color: var(--mid); border-bottom: 1px solid var(--border);
+      padding-bottom: 8px; margin-bottom: 13px;
+    }
+    .r-row { display: flex; justify-content: space-between; align-items: center; padding: 6px 0; border-bottom: 1px solid var(--light); }
+    .r-row:last-child { border-bottom: none; }
+    .r-key { font-size: 11px; color: var(--mid); }
+    .r-val { font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: var(--dark); font-weight: 500; }
+
+    /* ── STATUS BADGES ───────────────────────────────── */
+    .badge {
+      font-size: 10px; font-weight: 700; padding: 2px 9px;
+      letter-spacing: 0.07em; text-transform: uppercase;
+    }
+    .badge.ok   { background: var(--green-pale); color: var(--green-dark); }
+    .badge.warn { background: var(--warn-pale); color: var(--warn-dark); }
+    .badge.crit { background: var(--red-pale); color: var(--red-dark); }
+
+    /* ── SPARKLINE ───────────────────────────────────── */
+    .spark-wrap {
+      height: 48px; display: flex; align-items: flex-end;
+      gap: 3px; margin: 8px 0 4px; position: relative;
+    }
+    .spk { background: var(--amber); opacity: 0.45; border-radius: 1px 1px 0 0; transition: opacity 0.2s; }
+    .spk:hover { opacity: 0.9; }
+    .spk.hi { opacity: 1; background: var(--dark); }
+    .spark-crit { position: absolute; left: 0; right: 0; border-top: 1px dashed var(--red); pointer-events: none; }
+
+    /* ── PROB BARS ───────────────────────────────────── */
+    .pb-row { display: flex; align-items: center; gap: 9px; margin-bottom: 8px; }
+    .pb-name { font-size: 11px; color: var(--mid); width: 54px; }
+    .pb-track { flex: 1; height: 7px; background: var(--border); }
+    .pb-fill { height: 100%; background: var(--amber); transition: width 0.4s; }
+    .pb-fill.dim { background: var(--brown); }
+    .pb-fill.faint { background: var(--border); }
+    .pb-pct { font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: var(--dark); width: 30px; text-align: right; }
+
+    /* ── LIFE SEGMENTS ───────────────────────────────── */
+    .life-segs { display: flex; gap: 2px; margin: 9px 0 5px; }
+    .ls { flex: 1; height: 11px; background: var(--border); }
+    .ls.on { background: var(--dark); }
+    .ls.on.warn { background: var(--warn); }
+
+    /* ── REC PANEL ───────────────────────────────────── */
+    .rec { padding: 13px 15px; border-left: 4px solid; }
+    .rec.ok   { border-color: var(--green); background: var(--green-pale); }
+    .rec.warn { border-color: var(--warn);  background: var(--warn-pale); }
+    .rec.crit { border-color: var(--red);   background: var(--red-pale); }
+    .rec-label { font-size: 10px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; margin-bottom: 3px; }
+    .rec.ok   .rec-label { color: var(--green-dark); }
+    .rec.warn .rec-label { color: var(--warn-dark); }
+    .rec.crit .rec-label { color: var(--red-dark); }
+    .rec-action { font-size: 14px; font-weight: 500; color: var(--dark); }
+    .rec-detail { font-size: 11px; color: var(--mid); margin-top: 3px; }
+
+    /* ── RUL ESTIMATOR ───────────────────────────────── */
+    .rul-layout { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+    .field-g { margin-bottom: 13px; }
+    .field-label {
+      display: block; font-size: 10px; font-weight: 600;
+      letter-spacing: 0.09em; text-transform: uppercase;
+      color: var(--mid); margin-bottom: 5px;
+    }
+    .field-input, .field-select {
+      width: 100%; padding: 9px 11px;
+      border: 1px solid var(--border);
+      font-size: 13px; font-family: 'IBM Plex Mono', monospace;
+      color: var(--dark); background: var(--white);
+      outline: none; transition: border-color 0.15s;
+    }
+    .field-input:focus, .field-select:focus { border-color: var(--amber); }
+    .field-select { font-family: 'IBM Plex Sans', sans-serif; }
+    .calc-btn {
+      background: var(--dark); color: #fff;
+      font-size: 11px; font-weight: 700;
+      letter-spacing: 0.1em; text-transform: uppercase;
+      padding: 13px 28px; border: none;
+      cursor: pointer; width: 100%; margin-top: 6px;
+      font-family: 'IBM Plex Sans', sans-serif;
+      transition: background 0.15s;
+    }
+    .calc-btn:hover { background: var(--amber); color: var(--dark3); }
+    .result-grid {
+      display: grid; grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 1px; background: var(--border); border: 1px solid var(--border);
+      margin-bottom: 14px;
+    }
+    .result-cell { background: var(--white); padding: 15px; text-align: center; }
+    .rc-label { font-size: 10px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--mid); margin-bottom: 5px; }
+    .rc-val { font-family: 'IBM Plex Mono', monospace; font-size: 20px; font-weight: 500; color: var(--dark); }
+    .rc-unit { font-size: 12px; color: #aaa; }
+    .score-bar-wrap { margin-bottom: 9px; }
+    .score-bar-head { display: flex; justify-content: space-between; margin-bottom: 3px; }
+    .score-bar-label { font-size: 11px; color: var(--mid); }
+    .score-bar-val { font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: var(--dark); }
+    .score-track { background: var(--border); height: 6px; }
+    .score-fill { height: 100%; transition: width 0.4s; }
+
+    /* ── DOCS ────────────────────────────────────────── */
+    .docs-layout { display: grid; grid-template-columns: 200px 1fr; gap: 18px; }
+    .docs-sidebar { background: var(--white); border: 1px solid var(--border); }
+    .doc-nav-item {
+      padding: 10px 16px; font-size: 12px; color: var(--mid);
+      cursor: pointer; border-left: 3px solid transparent;
+      transition: background 0.1s, color 0.1s;
+    }
+    .doc-nav-item:hover { background: var(--light); color: var(--dark); }
+    .doc-nav-item.active { border-left-color: var(--amber); color: var(--dark); font-weight: 500; background: var(--amber-pale); }
+    .doc-content { background: var(--white); border: 1px solid var(--border); padding: 24px; }
+    .doc-pane { display: none; }
+    .doc-pane.active { display: block; }
+    .doc-h { font-size: 17px; font-weight: 500; margin-bottom: 10px; padding-bottom: 10px; border-bottom: 1px solid var(--border); }
+    .doc-p { font-size: 13px; color: var(--brown); line-height: 1.8; margin-bottom: 13px; }
+    .doc-code {
+      background: var(--dark3); color: #EF9F27;
+      padding: 14px 16px; font-size: 12px;
+      font-family: 'IBM Plex Mono', monospace; line-height: 1.75;
+      margin-bottom: 14px; overflow-x: auto; white-space: pre;
+    }
+    .doc-table { width: 100%; font-size: 12px; border-collapse: collapse; margin-bottom: 14px; }
+    .doc-table th {
+      text-align: left; padding: 7px 10px; font-size: 10px;
+      font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;
+      color: var(--mid); border-bottom: 1px solid var(--border);
+      background: var(--light);
+    }
+    .doc-table td { padding: 8px 10px; border-bottom: 1px solid var(--light); font-family: 'IBM Plex Mono', monospace; }
+    .http-tag {
+      display: inline-block; padding: 2px 7px;
+      font-size: 10px; font-weight: 700;
+      font-family: 'IBM Plex Mono', monospace; letter-spacing: 0.04em;
+    }
+    .get  { background: #E3F2FD; color: #0D47A1; }
+    .post { background: #E8F5E9; color: #1B5E20; }
+    .ws   { background: var(--amber-pale); color: #5D3A00; }
+
+    /* ── FOOTER ──────────────────────────────────────── */
+    footer {
+      background: var(--dark3);
+      border-top: 2px solid var(--amber);
+      padding: 24px 32px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 14px;
+      margin-top: 36px;
+    }
+    .footer-brand { color: #fff; font-size: 14px; font-weight: 500; }
+    .footer-brand span { color: var(--amber); }
+    .footer-sub { font-size: 11px; color: #5a4035; margin-top: 2px; }
+    .footer-links { display: flex; gap: 22px; flex-wrap: wrap; }
+    .footer-links a { font-size: 11px; color: #6b4c3b; text-decoration: none; letter-spacing: 0.06em; transition: color 0.15s; }
+    .footer-links a:hover { color: var(--amber); }
+
+    /* ── RESPONSIVE ──────────────────────────────────── */
+    @media (max-width: 700px) {
+      .hero-inner    { grid-template-columns: 1fr; }
+      .kpi-grid      { grid-template-columns: repeat(2, 1fr); }
+      .dash-grid     { grid-template-columns: 1fr; }
+      .rul-layout    { grid-template-columns: 1fr; }
+      .docs-layout   { grid-template-columns: 1fr; }
+      nav            { padding: 0 16px; }
+      .nav-links a   { padding: 0 10px; font-size: 10px; }
+      .container     { padding: 20px 14px; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ── NAVIGATION ── -->
+<nav>
+  <a class="nav-logo" href="#">
+    <!-- Inline SVG recreation of PipeIntel pixel-P logo -->
+    <svg class="nav-logo-img" viewBox="0 0 80 80" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+      <rect x="30" y="14" width="34" height="50" rx="2" fill="#4a3529"/>
+      <rect x="30" y="14" width="34" height="28" rx="2" fill="#3D2F28"/>
+      <rect x="30" y="14" width="8" height="50" fill="#5a4035"/>
+      <circle cx="47" cy="28" r="10" fill="#2C2420"/>
+      <rect x="6"  y="40" width="7" height="7" fill="#E8960A"/>
+      <rect x="14" y="36" width="5" height="5" fill="#BA7517"/>
+      <rect x="14" y="42" width="5" height="5" fill="#BA7517"/>
+      <rect x="20" y="30" width="5" height="5" fill="#7a5530"/>
+      <rect x="20" y="37" width="5" height="5" fill="#7a5530"/>
+      <rect x="20" y="44" width="5" height="5" fill="#7a5530"/>
+      <rect x="10" y="48" width="5" height="5" fill="#E8960A" opacity="0.55"/>
+      <rect x="16" y="28" width="4" height="4" fill="#E8960A" opacity="0.35"/>
+    </svg>
+    <div>
+      <div class="nav-brand">Pipe<span>Intel</span></div>
+      <div class="nav-sub">Predictive Maintenance</div>
+    </div>
+  </a>
+  <div style="display:flex;align-items:center">
+    <div class="nav-links">
+      <a class="active" onclick="showPage('dashboard',this)" href="#">Dashboard</a>
+      <a onclick="showPage('rul',this)" href="#">RUL Estimator</a>
+      <a onclick="showPage('docs',this)" href="#">Docs / About</a>
+    </div>
+    <div class="nav-status">
+      <div class="ws-dot"></div>
+      <span style="color:#6b4c3b;font-size:10px">API Demo</span>
+    </div>
+  </div>
+</nav>
+
+<!-- ── STATUS STRIP ── -->
+<div class="status-strip">
+  <div class="strip-item"><div class="ws-dot" style="width:6px;height:6px;margin:0"></div>&nbsp;WS connected</div>
+  <div class="strip-item">Active job: <span class="strip-val">RA-04</span></div>
+  <div class="strip-item">Stage: <span class="strip-val">II</span></div>
+  <div class="strip-item">Fluid: <span class="strip-val">CLAYSTIM</span></div>
+  <div class="strip-item">Last reading: <span class="strip-val" id="live-time">--:--:--</span></div>
+  <div class="strip-item" style="margin-left:auto">Backend: <span class="strip-val">localhost:8000</span></div>
+</div>
+
+
+<!-- ══════════════════════════════════════════════════ -->
+<!-- PAGE: DASHBOARD                                    -->
+<!-- ══════════════════════════════════════════════════ -->
+<div class="page active" id="page-dashboard">
+
+  <div class="hero">
+    <div class="hero-inner">
+      <div>
+        <div class="hero-eyebrow">Predictive maintenance &middot; Oil &amp; Gas</div>
+        <h1>Pipe integrity<br><strong>monitoring system</strong></h1>
+        <p class="hero-desc">
+          Real-time ultrasonic waveform analysis, ML-driven coating classification,
+          and physics-based corrosion modeling for coated drill pipe in acid stimulation service.
+          Built for field engineers — not dashboards for dashboards' sake.
+        </p>
+        <div class="hero-btns">
+          <button class="btn-primary" onclick="showPage('rul', document.querySelector('.nav-links a:nth-child(2)'))">Open RUL estimator</button>
+          <button class="btn-outline" onclick="showPage('docs', document.querySelector('.nav-links a:nth-child(3)'))">Read the docs</button>
+          <a href="https://github.com/halo-sarah/drillpipe-predictive-maintenance" style="display:flex;align-items:center">
+            <button class="btn-outline">View on GitHub</button>
+          </a>
+        </div>
+      </div>
+      <div class="hero-stats" aria-label="Live KPI summary">
+        <div class="hero-stat">
+          <div class="hero-stat-val">9.04</div>
+          <div class="hero-stat-label">Thickness (mm)</div>
+        </div>
+        <div class="hero-stat">
+          <div class="hero-stat-val">78.4</div>
+          <div class="hero-stat-label">Integrity score</div>
+        </div>
+        <div class="hero-stat">
+          <div class="hero-stat-val">14.3</div>
+          <div class="hero-stat-label">Jobs remaining</div>
+        </div>
+        <div class="hero-stat">
+          <div class="hero-stat-val">TK34P</div>
+          <div class="hero-stat-label">Coating (ML)</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="container">
+    <div class="section-eyebrow">Live condition summary</div>
+    <div class="section-heading">Condition KPIs &mdash; Job RA-04 / Stage II</div>
+
+    <div class="kpi-grid" role="region" aria-label="Key performance indicators">
+      <div class="kpi warn">
+        <div class="kpi-label">Wall thickness</div>
+        <div class="kpi-val">9.04<span class="kpi-unit"> mm</span></div>
+        <div class="kpi-sub">0.356 in &mdash; warn threshold: 5.0 mm</div>
+      </div>
+      <div class="kpi warn">
+        <div class="kpi-label">Integrity score</div>
+        <div class="kpi-val">78.4<span class="kpi-unit"> / 100</span></div>
+        <div class="kpi-sub">WARNING band &mdash; schedule inspection</div>
+      </div>
+      <div class="kpi warn">
+        <div class="kpi-label">Remaining life</div>
+        <div class="kpi-val">14.3<span class="kpi-unit"> jobs</span></div>
+        <div class="kpi-sub">0.019 mm/yr corrosion rate</div>
+      </div>
+      <div class="kpi green">
+        <div class="kpi-label">DS-1 grade</div>
+        <div class="kpi-val" style="font-size:18px">Class 1</div>
+        <div class="kpi-sub">Next: Class 2 at &le;0.294 in</div>
+      </div>
+    </div>
+
+    <div class="dash-grid">
+      <!-- Left column -->
+      <div>
+        <div class="panel">
+          <div class="panel-title">Real-time waveform reading</div>
+          <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:14px">
+            <div>
+              <div style="font-size:10px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;color:var(--mid);margin-bottom:4px">Frontwall</div>
+              <div class="mono" style="font-size:17px;font-weight:500">0.112 in</div>
+            </div>
+            <div>
+              <div style="font-size:10px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;color:var(--mid);margin-bottom:4px">Backwall</div>
+              <div class="mono" style="font-size:17px;font-weight:500">0.356 in</div>
+            </div>
+            <div>
+              <div style="font-size:10px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;color:var(--mid);margin-bottom:4px">Baseline</div>
+              <div class="mono" style="font-size:17px;font-weight:500">9.12 mm</div>
+            </div>
+          </div>
+          <div class="r-row"><span class="r-key">Spike score (MAD-normalised)</span><span class="r-val">1.24</span></div>
+          <div class="r-row"><span class="r-key">Anomaly detected</span><span class="badge ok">NONE</span></div>
+          <div class="r-row"><span class="r-key">Reading status</span><span class="badge warn">WARNING</span></div>
+          <div class="r-row"><span class="r-key">Timestamp</span><span class="r-val" id="dash-ts">2026-04-19 &mdash;</span></div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-title">Thickness trend &mdash; last 14 readings</div>
+          <div class="spark-wrap" role="img" aria-label="Thickness trend sparkline">
+            <div class="spark-crit" style="bottom:25%"></div>
+            <div class="spk" style="height:75%;flex:1"></div>
+            <div class="spk" style="height:79%;flex:1"></div>
+            <div class="spk" style="height:71%;flex:1"></div>
+            <div class="spk" style="height:82%;flex:1"></div>
+            <div class="spk" style="height:73%;flex:1"></div>
+            <div class="spk" style="height:85%;flex:1"></div>
+            <div class="spk" style="height:69%;flex:1"></div>
+            <div class="spk" style="height:78%;flex:1"></div>
+            <div class="spk" style="height:74%;flex:1"></div>
+            <div class="spk" style="height:70%;flex:1"></div>
+            <div class="spk" style="height:76%;flex:1"></div>
+            <div class="spk" style="height:73%;flex:1"></div>
+            <div class="spk" style="height:71%;flex:1"></div>
+            <div class="spk hi" style="height:74%;flex:1" title="Latest: 9.04 mm"></div>
+          </div>
+          <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--mid)">
+            <span style="color:var(--red)">&#x2014; Critical threshold: 3.0 mm</span>
+            <span>Latest: 9.04 mm</span>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-title">Maintenance recommendation</div>
+          <div class="rec warn">
+            <div class="rec-label">Recommendation</div>
+            <div class="rec-action">Schedule inspection</div>
+            <div class="rec-detail">Integrity 78.4/100 &middot; Confidence 71% &middot; Risk &times;1.145 &middot; 14.3 jobs remain</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Right column -->
+      <div>
+        <div class="panel">
+          <div class="panel-title">Coating classification (ML ensemble)</div>
+          <div class="pb-row">
+            <span class="pb-name">TK34P</span>
+            <div class="pb-track"><div class="pb-fill" style="width:71%"></div></div>
+            <span class="pb-pct">71%</span>
+          </div>
+          <div class="pb-row">
+            <span class="pb-name">TC2000P</span>
+            <div class="pb-track"><div class="pb-fill dim" style="width:21%"></div></div>
+            <span class="pb-pct">21%</span>
+          </div>
+          <div class="pb-row">
+            <span class="pb-name">TK34</span>
+            <div class="pb-track"><div class="pb-fill faint" style="width:8%"></div></div>
+            <span class="pb-pct">8%</span>
+          </div>
+          <div style="border-top:1px solid var(--border);padding-top:10px;margin-top:6px">
+            <div style="font-size:11px;color:var(--mid)">Predicted</div>
+            <div style="font-size:15px;font-weight:500;margin-top:2px">TK34P <span style="font-size:11px;font-weight:400;color:var(--mid)">(71% confidence)</span></div>
+            <div style="font-size:10px;color:var(--mid);margin-top:2px">RF 68% &middot; SVM 74% &middot; Ensemble 71%</div>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-title">Job context</div>
+          <div class="r-row"><span class="r-key">Job ID</span><span class="r-val">RA-04</span></div>
+          <div class="r-row"><span class="r-key">Stage</span><span class="r-val">II</span></div>
+          <div class="r-row"><span class="r-key">Fluid system</span><span class="r-val">CLAYSTIM</span></div>
+          <div class="r-row"><span class="r-key">Coating type</span><span class="r-val">TK34P</span></div>
+          <div class="r-row"><span class="r-key">Coating thickness</span><span class="r-val">9.0 mils</span></div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-title">Remaining life</div>
+          <div class="life-segs" role="img" aria-label="14.3 of 20 reference jobs remaining">
+            <div class="ls on"></div><div class="ls on"></div><div class="ls on"></div>
+            <div class="ls on"></div><div class="ls on"></div><div class="ls on"></div>
+            <div class="ls on warn"></div><div class="ls on warn"></div><div class="ls on warn"></div>
+            <div class="ls"></div><div class="ls"></div><div class="ls"></div>
+            <div class="ls"></div><div class="ls"></div><div class="ls"></div>
+            <div class="ls"></div><div class="ls"></div><div class="ls"></div>
+            <div class="ls"></div><div class="ls"></div>
+          </div>
+          <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--mid)">
+            <span>14.3 / 20 reference jobs</span><span>72% remaining</span>
+          </div>
+          <div class="r-row" style="margin-top:8px"><span class="r-key">Base loss/job</span><span class="r-val">0.000423 in</span></div>
+          <div class="r-row"><span class="r-key">Risk multiplier</span><span class="r-val">&times;1.145</span></div>
+          <div class="r-row"><span class="r-key">Corrosion rate</span><span class="r-val">0.019 mm/yr</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+<!-- ══════════════════════════════════════════════════ -->
+<!-- PAGE: RUL ESTIMATOR                               -->
+<!-- ══════════════════════════════════════════════════ -->
+<div class="page" id="page-rul">
+
+  <div class="hero" style="padding:28px 32px 24px">
+    <div style="max-width:900px;margin:0 auto">
+      <div class="hero-eyebrow">Physics-based calculation</div>
+      <div style="font-size:24px;font-weight:300;color:#fff;margin-bottom:6px">Remaining useful life estimator</div>
+      <div style="font-size:13px;color:#a89080">Enter wall thickness inspection data and operating parameters to compute corrosion rate, RUL, and integrity score.</div>
+    </div>
+  </div>
+
+  <div class="container">
+    <div class="rul-layout">
+      <!-- Inputs -->
+      <div>
+        <div class="panel">
+          <div class="panel-title">Wall thickness inspection</div>
+          <div class="field-g">
+            <label class="field-label" for="wt_before">WT reference / new (in)</label>
+            <input class="field-input" id="wt_before" type="number" value="0.368" step="0.001" min="0.01">
+          </div>
+          <div class="field-g">
+            <label class="field-label" for="wt_current">WT current measured (in)</label>
+            <input class="field-input" id="wt_current" type="number" value="0.356" step="0.001" min="0.01">
+          </div>
+          <div class="field-g">
+            <label class="field-label" for="wt_min">WT minimum / scrap (in)</label>
+            <input class="field-input" id="wt_min" type="number" value="0.310" step="0.001" min="0.01">
+          </div>
+
+          <div class="panel-title" style="margin-top:14px">Operating parameters</div>
+          <div class="field-g">
+            <label class="field-label" for="coating">Coating type</label>
+            <select class="field-select" id="coating">
+              <option value="TK34P">TK34P</option>
+              <option value="TK34">TK34</option>
+              <option value="TC2000P">TC2000P</option>
+            </select>
+          </div>
+          <div class="field-g">
+            <label class="field-label" for="confidence">ML confidence (0.00&ndash;1.00)</label>
+            <input class="field-input" id="confidence" type="number" value="0.87" step="0.01" min="0" max="1">
+          </div>
+          <div class="field-g">
+            <label class="field-label" for="alpha">Confidence penalty &alpha;</label>
+            <input class="field-input" id="alpha" type="number" value="0.50" step="0.05" min="0" max="2">
+          </div>
+          <div class="field-g">
+            <label class="field-label" for="jpy">Jobs per year</label>
+            <input class="field-input" id="jpy" type="number" value="12" step="1" min="1" max="100">
+          </div>
+          <button class="calc-btn" onclick="calcRUL()">Calculate RUL</button>
+        </div>
+      </div>
+
+      <!-- Results -->
+      <div>
+        <div class="panel" id="rul-results-panel">
+          <div class="panel-title">Results</div>
+          <div id="rul-result-area">
+            <div style="color:var(--mid);font-size:13px;padding:24px 0;text-align:center">
+              Enter parameters and click Calculate RUL
+            </div>
+          </div>
+        </div>
+
+        <div class="panel" style="margin-top:14px">
+          <div class="panel-title">Integrity score breakdown</div>
+          <div id="score-breakdown">
+            <div style="color:var(--mid);font-size:12px;padding:8px 0">Run calculation to see score components</div>
+          </div>
+        </div>
+
+        <div class="panel" style="margin-top:14px">
+          <div class="panel-title">About this model</div>
+          <div style="font-size:12px;color:var(--brown);line-height:1.8">
+            <p style="margin-bottom:8px">Loss per job is computed step-by-step from stimulation chemistry (HCl, HF, NH&#x2084;Cl), inhibitor loading, and coating protection factor. A confidence penalty &alpha; inflates the loss estimate conservatively when ML model certainty is low.</p>
+            <p>DS-1 grades follow the API/ISO drill pipe inspection standard. The integrity score (0&ndash;100) combines thickness condition, spike anomaly, ML confidence, and RUL risk.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+<!-- ══════════════════════════════════════════════════ -->
+<!-- PAGE: DOCS / ABOUT                                -->
+<!-- ══════════════════════════════════════════════════ -->
+<div class="page" id="page-docs">
+
+  <div class="hero" style="padding:28px 32px 24px">
+    <div style="max-width:900px;margin:0 auto">
+      <div class="hero-eyebrow">Documentation &amp; reference</div>
+      <div style="font-size:24px;font-weight:300;color:#fff;margin-bottom:6px">API reference &amp; project docs</div>
+      <div style="font-size:13px;color:#a89080">Architecture, endpoint reference, integrity scoring logic, and deployment guide.</div>
+    </div>
+  </div>
+
+  <div class="container">
+    <div class="docs-layout">
+      <div class="docs-sidebar">
+        <div class="doc-nav-item active" onclick="showDoc('about',this)">About PipeIntel</div>
+        <div class="doc-nav-item" onclick="showDoc('api',this)">API endpoints</div>
+        <div class="doc-nav-item" onclick="showDoc('integrity',this)">Integrity scoring</div>
+        <div class="doc-nav-item" onclick="showDoc('deploy',this)">Deployment guide</div>
+        <div class="doc-nav-item" onclick="showDoc('structure',this)">Project structure</div>
+      </div>
+
+      <div class="doc-content">
+
+        <div class="doc-pane active" id="doc-about">
+          <div class="doc-h">About PipeIntel</div>
+          <p class="doc-p">PipeIntel is a predictive maintenance system for coated drill pipe used in acid stimulation service. It combines ultrasonic waveform analysis, machine learning coating classification, and physics-based corrosion modeling to produce a single integrity score and maintenance recommendation per reading.</p>
+          <p class="doc-p">The system is designed as an internal engineering tool &mdash; data-first, minimal interface, explainable outputs. It is a portfolio project built to demonstrate the intersection of domain engineering knowledge and applied ML.</p>
+          <table class="doc-table">
+            <thead><tr><th>Component</th><th>Technology</th><th>Role</th></tr></thead>
+            <tbody>
+              <tr><td>Backend API</td><td>FastAPI + Python</td><td>Waveform ingestion, RUL, WS broadcast</td></tr>
+              <tr><td>ML model</td><td>scikit-learn RF + SVM</td><td>Coating type classification</td></tr>
+              <tr><td>Physics model</td><td>Custom Python</td><td>Corrosion rate &amp; RUL estimation</td></tr>
+              <tr><td>Dashboard</td><td>Streamlit / HTML</td><td>Monitoring &amp; estimator UI</td></tr>
+              <tr><td>Real-time</td><td>WebSocket</td><td>Live thickness.update events</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="doc-pane" id="doc-api">
+          <div class="doc-h">API endpoints</div>
+          <p class="doc-p">Base URL: <code style="background:var(--light);padding:1px 6px;font-family:'IBM Plex Mono',monospace;font-size:12px">http://localhost:8000</code> — start with <code style="background:var(--light);padding:1px 6px;font-family:'IBM Plex Mono',monospace;font-size:12px">uvicorn main:app --reload --port 8000</code></p>
+          <table class="doc-table">
+            <thead><tr><th>Method</th><th>Path</th><th>Description</th></tr></thead>
+            <tbody>
+              <tr><td><span class="http-tag get">GET</span></td><td>/health</td><td>Liveness check</td></tr>
+              <tr><td><span class="http-tag ws">WS</span></td><td>/ws</td><td>Real-time thickness events</td></tr>
+              <tr><td><span class="http-tag post">POST</span></td><td>/master/upload</td><td>Upload job/stage Excel master</td></tr>
+              <tr><td><span class="http-tag post">POST</span></td><td>/context/active</td><td>Set active job context</td></tr>
+              <tr><td><span class="http-tag get">GET</span></td><td>/context/active</td><td>Get active context</td></tr>
+              <tr><td><span class="http-tag post">POST</span></td><td>/ingest/waveform</td><td>Upload A-scan file (xlsx/csv)</td></tr>
+              <tr><td><span class="http-tag post">POST</span></td><td>/rul/estimate</td><td>Estimate corrosion rate + RUL</td></tr>
+            </tbody>
+          </table>
+          <p class="doc-p">Example &mdash; RUL estimate request:</p>
+          <div class="doc-code">curl -X POST http://localhost:8000/rul/estimate \
+  -H "Content-Type: application/json" \
+  -d '{
+    "wt_before_in": 0.368,
+    "wt_current_in": 0.356,
+    "wt_min_in": 0.310,
+    "coating": "TK34P",
+    "confidence": 0.87,
+    "alpha": 0.5
+  }'</div>
+        </div>
+
+        <div class="doc-pane" id="doc-integrity">
+          <div class="doc-h">Integrity scoring</div>
+          <p class="doc-p">The integrity score (0&ndash;100) is a composite index. A thickness-based base score is reduced by up to three penalty terms reflecting anomaly detection, model confidence, and remaining life risk.</p>
+          <table class="doc-table">
+            <thead><tr><th>Component</th><th>Max effect</th></tr></thead>
+            <tbody>
+              <tr><td>Wall thickness condition</td><td>0&ndash;100 (base)</td></tr>
+              <tr><td>Spike / anomaly penalty</td><td>&minus;20 pts</td></tr>
+              <tr><td>ML confidence deficit (&alpha; &times; deficit)</td><td>&minus;15 pts</td></tr>
+              <tr><td>RUL risk (&lt; 20 jobs remaining)</td><td>&minus;15 pts</td></tr>
+            </tbody>
+          </table>
+          <table class="doc-table">
+            <thead><tr><th>Score</th><th>Status</th><th>Recommendation</th></tr></thead>
+            <tbody>
+              <tr><td>&ge; 70</td><td><span class="badge ok">NORMAL</span></td><td>Continue operation</td></tr>
+              <tr><td>40&ndash;70</td><td><span class="badge warn">WARNING</span></td><td>Schedule inspection</td></tr>
+              <tr><td>&lt; 40</td><td><span class="badge crit">CRITICAL</span></td><td>Immediate shutdown</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="doc-pane" id="doc-deploy">
+          <div class="doc-h">Deployment guide</div>
+          <p class="doc-p">Clone the repository and install dependencies:</p>
+          <div class="doc-code">git clone https://github.com/halo-sarah/drillpipe-predictive-maintenance
+cd drillpipe-predictive-maintenance
+pip install -r requirements.txt</div>
+          <p class="doc-p">Start the FastAPI backend:</p>
+          <div class="doc-code">uvicorn main:app --reload --port 8000</div>
+          <p class="doc-p">Start the Streamlit analytics dashboard:</p>
+          <div class="doc-code">streamlit run app.py</div>
+          <p class="doc-p">Model artefacts (<code style="font-family:'IBM Plex Mono',monospace;font-size:12px">.pkl</code> files) are not committed to the repository. Train with your labelled coating dataset and place the four artefact files in the root directory before starting the Streamlit app.</p>
+          <p class="doc-p">This static website (<code style="font-family:'IBM Plex Mono',monospace;font-size:12px">index.html</code>) is hosted via GitHub Pages &mdash; no build step required. Enable it under <strong>Settings &rarr; Pages &rarr; Deploy from main branch / root</strong>.</p>
+        </div>
+
+        <div class="doc-pane" id="doc-structure">
+          <div class="doc-h">Project structure</div>
+          <div class="doc-code">drillpipe-predictive-maintenance/
+&#x251C;&#x2500;&#x2500; main.py          # FastAPI routes + WebSocket hub
+&#x251C;&#x2500;&#x2500; services.py      # Waveform, spike detector, RUL, context store
+&#x251C;&#x2500;&#x2500; rules.py         # Integrity scoring &amp; decision logic
+&#x251C;&#x2500;&#x2500; schemas.py       # Pydantic request/response models
+&#x251C;&#x2500;&#x2500; app.py           # Streamlit analytics dashboard
+&#x251C;&#x2500;&#x2500; index.html       # This website (GitHub Pages)
+&#x251C;&#x2500;&#x2500; requirements.txt
+└── README.md</div>
+          <p class="doc-p">Four backend files cover all domain logic. No repository pattern, no service locator, no unnecessary abstraction. Each file has a single clear responsibility: routes, domain services, decision rules, and data schemas.</p>
+        </div>
+
+      </div>
+    </div>
+  </div>
+</div>
+
+
+<!-- ── FOOTER ── -->
+<footer>
+  <div>
+    <div class="footer-brand">Pipe<span>Intel</span> &mdash; Predictive Maintenance System</div>
+    <div class="footer-sub">github.com/halo-sarah/drillpipe-predictive-maintenance</div>
+  </div>
+  <div class="footer-links">
+    <a onclick="showPage('dashboard',document.querySelector('.nav-links a'))" href="#">Dashboard</a>
+    <a onclick="showPage('rul',document.querySelector('.nav-links a:nth-child(2)'))" href="#">RUL Estimator</a>
+    <a onclick="showPage('docs',document.querySelector('.nav-links a:nth-child(3)'))" href="#">Docs</a>
+    <a href="https://github.com/halo-sarah/drillpipe-predictive-maintenance">GitHub &rarr;</a>
+  </div>
+</footer>
+
+
+<script>
+  /* ── PAGE NAVIGATION ── */
+  function showPage(id, el) {
+    document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+    document.querySelectorAll('.nav-links a').forEach(a => a.classList.remove('active'));
+    const pg = document.getElementById('page-' + id);
+    if (pg) pg.classList.add('active');
+    if (el) el.classList.add('active');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
+  /* ── DOC SECTION NAVIGATION ── */
+  function showDoc(id, el) {
+    document.querySelectorAll('.doc-pane').forEach(d => d.classList.remove('active'));
+    document.querySelectorAll('.doc-nav-item').forEach(i => i.classList.remove('active'));
+    const pane = document.getElementById('doc-' + id);
+    if (pane) pane.classList.add('active');
+    if (el) el.classList.add('active');
+  }
+
+  /* ── LIVE CLOCK ── */
+  function tick() {
+    const now = new Date();
+    const t = now.toLocaleTimeString('en-GB');
+    const el1 = document.getElementById('live-time');
+    const el2 = document.getElementById('dash-ts');
+    if (el1) el1.textContent = t;
+    if (el2) el2.textContent = now.toISOString().slice(0,10) + ' ' + t;
+  }
+  tick(); setInterval(tick, 1000);
+
+  /* ── RUL CALCULATOR ── */
+  function calcRUL() {
+    const wtB  = parseFloat(document.getElementById('wt_before').value)  || 0.368;
+    const wtC  = parseFloat(document.getElementById('wt_current').value)  || 0.356;
+    const wtM  = parseFloat(document.getElementById('wt_min').value)      || 0.310;
+    const coat = document.getElementById('coating').value;
+    const conf = parseFloat(document.getElementById('confidence').value)  || 0.87;
+    const alph = parseFloat(document.getElementById('alpha').value)       || 0.5;
+    const jpy  = parseInt(document.getElementById('jpy').value)           || 12;
+
+    if (wtC >= wtB) { alert('WT Current must be less than WT Reference.'); return; }
+    if (wtM >= wtC) { alert('WT Minimum must be less than WT Current.'); return; }
+
+    /* Physics constants */
+    const k0 = 2.5e-5, sf = 1.25, tRef = 9.0, tExp = 0.6;
+    const coatBase = { TK34: 0.60, TK34P: 0.55, TC2000P: 0.55 };
+    const coatNom  = { TK34: 7.0,  TK34P: 9.0,  TC2000P: 8.0 };
+    const cf = coatBase[coat] * Math.pow(tRef / coatNom[coat], tExp);
+
+    const steps = [
+      { min: 54.0,  hcl: 10, hf: 3, nh4: 2, inh: 20, chel: true,  pen: true  },
+      { min: 90.0,  hcl: 10, hf: 3, nh4: 2, inh: 20, chel: true,  pen: true  },
+      { min: 97.5,  hcl:  2, hf: 0, nh4: 2, inh: 20, chel: false, pen: false },
+    ];
+    const fHcl  = x => 1 + 0.25 * Math.pow(Math.max(x,0), 1.2);
+    const fHf   = x => 1 + 0.45 * Math.pow(Math.max(x,0), 1.1);
+    const fNh4  = x => 1 + 0.20 * Math.log10(1 + Math.max(x,0));
+    const inhEf = g => Math.min(0.92 * g / (10 + g), 0.95);
+    const fAdd  = s => (s.chel ? 0.95 : 1) * (s.pen ? 1.05 : 1);
+
+    let baseLoss = 0;
+    steps.forEach(s => {
+      baseLoss += k0 * fHcl(s.hcl) * fHf(s.hf) * fNh4(s.nh4)
+                    * (1 - inhEf(s.inh)) * fAdd(s) * cf * sf * (s.min / 60);
+    });
+
+    const riskMult = 1 + alph * (1 - Math.min(1, Math.max(0, conf)));
+    const adjLoss  = baseLoss * riskMult;
+    const jobsRem  = adjLoss > 0 ? Math.max((wtC - wtM) / adjLoss, 0) : Infinity;
+    const corrRate = adjLoss * jpy * 25.4;
+
+    /* Integrity score */
+    const thickMm = wtC * 25.4;
+    const WARN_MM = 5.0, CRIT_MM = 3.0;
+    let thickScore;
+    if      (thickMm >= WARN_MM)  thickScore = Math.min(100, 70 + 30 * (thickMm - WARN_MM) / WARN_MM);
+    else if (thickMm > CRIT_MM)   thickScore = 30 + 40 * (thickMm - CRIT_MM) / (WARN_MM - CRIT_MM);
+    else                           thickScore = Math.max(0, 30 * thickMm / CRIT_MM);
+
+    const rulPen  = jobsRem >= 20 ? 0 : (jobsRem >= 5 ? 15 * (1 - (jobsRem - 5) / 15) : 15);
+    const confPen = Math.min(15, 0.4 * (1 - Math.min(1,conf)) * 15 / 0.4);
+    const score   = Math.max(0, Math.min(100, thickScore - confPen - rulPen));
+
+    let status, rec, recClass;
+    if      (score >= 70) { status = 'NORMAL';   rec = 'Continue operation';  recClass = 'ok'; }
+    else if (score >= 40) { status = 'WARNING';  rec = 'Schedule inspection'; recClass = 'warn'; }
+    else                  { status = 'CRITICAL'; rec = 'Immediate shutdown';  recClass = 'crit'; }
+
+    /* DS-1 grade */
+    const ds1Thresholds = [['Premium',0.90],['Class 1',0.80],['Class 2',0.70],['Class 3',0.60]];
+    const ratio = wtC / wtB;
+    let grade = 'Below Class 3';
+    if (wtC <= wtM) { grade = 'Scrap'; }
+    else { for (const [g,t] of ds1Thresholds) { if (ratio >= t) { grade = g; break; } } }
+
+    /* Render results */
+    const jobStr = isFinite(jobsRem) ? jobsRem.toFixed(1) : '&infin;';
+    document.getElementById('rul-result-area').innerHTML = `
+      <div class="result-grid" style="margin-bottom:14px">
+        <div class="result-cell">
+          <div class="rc-label">Jobs remaining</div>
+          <div class="rc-val">${jobStr}<span class="rc-unit"> jobs</span></div>
+        </div>
+        <div class="result-cell">
+          <div class="rc-label">Corrosion rate</div>
+          <div class="rc-val">${corrRate.toFixed(3)}<span class="rc-unit"> mm/yr</span></div>
+        </div>
+        <div class="result-cell">
+          <div class="rc-label">Integrity score</div>
+          <div class="rc-val">${score.toFixed(1)}<span class="rc-unit"> /100</span></div>
+        </div>
+      </div>
+      <div class="rec ${recClass}" style="margin-bottom:14px">
+        <div class="rec-label">Recommendation</div>
+        <div class="rec-action">${rec}</div>
+        <div class="rec-detail">${status} &middot; Score ${score.toFixed(1)} &middot; Risk &times;${riskMult.toFixed(3)} &middot; DS-1: ${grade}</div>
+      </div>
+      <div class="r-row"><span class="r-key">Base loss / job</span><span class="r-val">${baseLoss.toFixed(7)} in</span></div>
+      <div class="r-row"><span class="r-key">Adjusted loss / job</span><span class="r-val">${adjLoss.toFixed(7)} in</span></div>
+      <div class="r-row"><span class="r-key">Risk multiplier</span><span class="r-val">&times;${riskMult.toFixed(4)}</span></div>
+      <div class="r-row"><span class="r-key">DS-1 grade</span><span class="r-val">${grade}</span></div>
+      <div class="r-row"><span class="r-key">WT margin</span><span class="r-val">${((wtC - wtM)*1000).toFixed(2)} thou</span></div>
+    `;
+
+    /* Score breakdown bars */
+    document.getElementById('score-breakdown').innerHTML = `
+      <div class="score-bar-wrap">
+        <div class="score-bar-head">
+          <span class="score-bar-label">Thickness base</span>
+          <span class="score-bar-val">+${thickScore.toFixed(1)}</span>
+        </div>
+        <div class="score-track"><div class="score-fill" style="width:${Math.min(thickScore,100)}%;background:var(--amber)"></div></div>
+      </div>
+      <div class="score-bar-wrap">
+        <div class="score-bar-head">
+          <span class="score-bar-label">Confidence penalty</span>
+          <span class="score-bar-val" style="color:var(--red)">&minus;${confPen.toFixed(1)}</span>
+        </div>
+        <div class="score-track"><div class="score-fill" style="width:${(confPen/15*100).toFixed(0)}%;background:var(--red)"></div></div>
+      </div>
+      <div class="score-bar-wrap">
+        <div class="score-bar-head">
+          <span class="score-bar-label">RUL risk penalty</span>
+          <span class="score-bar-val" style="color:var(--red)">&minus;${rulPen.toFixed(1)}</span>
+        </div>
+        <div class="score-track"><div class="score-fill" style="width:${(rulPen/15*100).toFixed(0)}%;background:var(--red)"></div></div>
+      </div>
+      <div style="border-top:1px solid var(--border);padding-top:11px;display:flex;justify-content:space-between;align-items:center;margin-top:4px">
+        <span style="font-size:13px;font-weight:500">Final integrity score</span>
+        <span style="font-family:'IBM Plex Mono',monospace;font-size:22px;font-weight:500">${score.toFixed(1)}</span>
+      </div>
+    `;
+  }
+</script>
+
+</body>
+</html>
